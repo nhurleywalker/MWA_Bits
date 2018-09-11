@@ -18,7 +18,7 @@ def add_sumss_beam(fitsfile, outname):
     hdu[0].header["BPA"] = bpa
 
     if outname is None:
-        outname = fitfile.replace(".fits", "_wpsf.fits")
+        outname = fitsfile.replace(".fits", "_wpsf.fits")
     hdu.writeto(outname)
 
 if __name__ == "__main__":
