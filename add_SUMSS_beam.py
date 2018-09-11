@@ -19,7 +19,7 @@ def add_sumss_beam(fitsfile, outname):
 
     if outname is None:
         outname = fitsfile.replace(".fits", "_wpsf.fits")
-    hdu.writeto(outname)
+    hdu.writeto(outname, overwrite=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
