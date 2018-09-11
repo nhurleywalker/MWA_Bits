@@ -27,7 +27,7 @@ if __name__ == "__main__":
     group1.add_argument("--infits", dest='infits', type=str, default=None,
                         help="The fits image to add a beam to.")
     group1.add_argument("--outfits", dest='outfits', type=str, default=None,
-                        help="The output filename (default = _wpsf)."
+                        help="The output filename (default = _wpsf).")
     results = parser.parse_args()
 
     if len(sys.argv) <= 1:
