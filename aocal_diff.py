@@ -1,4 +1,8 @@
 #!/usr/bin/env python
+
+__author__ = "Natasha Hurley-Walker"
+__date__ = "12/09/2018"
+
 import os, sys
 from optparse import OptionParser #NB zeus does not have argparse!
 
@@ -65,7 +69,7 @@ def phase_map(diffs, metafits, names, obsid):
     sc = ax.scatter(North, East, marker='o', s=150, linewidths=4, c=diffs, cmap=plt.cm.hsv, vmin = -180., vmax = 180.)
     ax.set_xlabel("East / m")
     ax.set_ylabel("North / m")
-    if options.names is True:
+    if names is True:
         for i, txt in enumerate(Names):
             ax.annotate(txt, (North[i], East[i]))
 
@@ -93,7 +97,7 @@ if __name__ == '__main__':
     parser.add_option("-m", "--metafits", default=None, dest="metafits", help="metafits file (must be supplied to generate phase map")
     parser.add_option("-v", "--verbose", action="count", dest="verbose", help="-v info, -vv debug")
     parser.add_option("--outdir", default=None, dest="outdir", help="output directory [default: same as binfile]")
-    parser.add_option("--names", default=False, dest="names", help="Plot tile names on phase map")
+    parser.add_option("--names", action="store_true", default=False, dest="names", help="Plot tile names on phase map")
 #    parser.add_option("--output", default=None, dest="output", help="output names [default: OBSID_histogram.png and OBSID_phasemap.png")
 #    parser.add_option("--marker", default=',', dest="marker", type="string", help="matplotlib marker [default: %default]")
 #    parser.add_option("--markersize", default=2, dest="markersize", type="int", help="matplotlib markersize [default: %default]")
