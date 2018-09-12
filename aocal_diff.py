@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, logging
+import os, sys
 from optparse import OptionParser #NB zeus does not have argparse!
 
 import numpy as np
@@ -8,7 +8,8 @@ import matplotlib
 matplotlib.use('Agg')
 #import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
+#from mpl_toolkits.axes_grid.anchored_artists import AnchoredText
+from matplotlib.offsetbox import AnchoredText
 #import pylab
 from astropy.io import fits
 from mwapy import aocal
@@ -38,7 +39,7 @@ def diff(ao, metafits, refant):
         diffs.append(temp)
     return diffs
 
-def histo(diffs, outname):
+def histo(diffs, obsid):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(diffs, bins = 60, range=[-180, 180])
@@ -52,10 +53,11 @@ def histo(diffs, outname):
                   )
     at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
     ax.add_artist(at)
-    print np.median(diffs), peak, np.std(diffs)
+    outname = obsid+"_histogram.png"
     fig.savefig(outname)
+    return np.median(diffs), peak, np.std(diffs)
 
-def phase_map(diffs, metafits, names, outname):
+def phase_map(diffs, metafits, names, obsid):
     fig = plt.figure(figsize = (10,8))
     Names, North, East = get_tile_info(metafits)
     ax = fig.add_axes([0.15, 0.1, 0.65, 0.75])
@@ -70,7 +72,17 @@ def phase_map(diffs, metafits, names, outname):
     cbaxes = fig.add_axes([0.82, 0.1, 0.02, 0.75])
     cb = plt.colorbar(sc, cax = cbaxes, orientation="vertical")
     cb.set_label('Phase change / degrees')
+    outname = obsid+"_phasemap.png"
     fig.savefig(outname)
+
+def csv_out(obsid, median, peak, std):
+    outformat = "{0},{1},{2},{3}\n"
+    outvars = [obsid, median, peak, std ]
+    outputfile = obsid+"_ionodiff.csv"
+    if not os.path.exists(outputfile):
+        with open(outputfile, 'w') as output_file:
+           output_file.write("#obsid,median,peak,std\n")
+           output_file.write(outformat.format(*outvars))
 
 if __name__ == '__main__':
     parser = OptionParser(usage = "usage: %prog binfile" +
@@ -91,21 +103,23 @@ if __name__ == '__main__':
         parser.error("incorrect number of arguments")
 
     filename = args[0]
-    ao = aocal.fromfile(filename)
-    obsid = filename[0:10]
-    histname = obsid+"_histogram.png"
-    mapname = obsid+"_phasemap.png"
+    if os.path.exists(filename):
+        ao = aocal.fromfile(filename)
+    else:
+        print filename+" does not exist!"
+        sys.exit(1)
 
+    obsid = filename[0:10]
     diffs = np.array(diff(ao, options.metafits, options.refant))
-    print diffs.shape
 # Flatten array and delete NaNs for histogram
-    histo(diffs[np.logical_not(np.isnan(diffs))].flatten(), histname)
+    median, peak, std = histo(diffs[np.logical_not(np.isnan(diffs))].flatten(), obsid)
+
+    csv_out(obsid, median, peak, std)
+
     if options.metafits is not None:
         if os.path.exists(options.metafits):
 # Plotting on a single frequency, single pol on map because it's impossible otherwise
             diffs = diffs[:, 0, 15]
 # Could also take the average of a few frequencies, but it doesn't change anything
 #            diffs = np.average(diffs[:, 0, 12:20], axis=1)
-            phase_map(diffs, options.metafits, options.names, mapname)
-           
-#    plot(ao, os.path.splitext(args[0])[0]+opts.suffix, opts.refant, plot_title = opts.plot_title, outdir=opts.outdir, format=opts.format, amp_max=opts.amp_max, marker=opts.marker, markersize=opts.markersize, verbose=opts.verbose, metafits=opts.metafits)
+            phase_map(diffs, options.metafits, options.names, obsid)
