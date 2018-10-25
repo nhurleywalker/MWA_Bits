@@ -29,8 +29,9 @@ def get_tile_info(metafits):
 
 def diff(ao, metafits, refant):
     diffs = []
-    t_start = 0
-    t_end = ao.n_int - 1
+    non_nan_intervals = np.where([not np.isnan(ao[i, refant, :, 0]).all() for i in range(ao.n_int)])[0]
+    t_start = non_nan_intervals.min()
+    t_end = non_nan_intervals.max()
 # Divide through by refant
     ao = ao / ao[:, refant, :, :][:, np.newaxis, :, :]
     ant_iter = xrange(ao.n_ant)
