@@ -27,3 +27,5 @@ t.write("example_table.tex", overwrite=True)
 
 with file('example_table.tex', 'r') as original: data = original.read()
 with file('latex_me.tex', 'w') as modified: modified.write("\\documentclass{article} \n\\begin{document}\n" + data + "\n \\end{document}")
+
+print "Now run 'pdflatex latex_me.tex'"
