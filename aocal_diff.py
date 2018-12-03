@@ -51,6 +51,7 @@ def phi_rms(ao, metafits, refant):
     t_end = non_nan_intervals.max()
 # Calculate middle interval
     t_mid = int((t_end - t_start)/2.0)
+    print t_mid
 # Divide through by refant
 # (Probably unnecessary)
     ao = ao / ao[:, refant, :, :][:, np.newaxis, :, :]
@@ -64,8 +65,9 @@ def phi_rms(ao, metafits, refant):
            temp_gains = ao[:, antenna, :, pol] / ao[t_mid, antenna, :, pol]
 # then convert to angles
            temp_angles = np.angle(ao[:, antenna, :, pol], deg=True)
-# Then find RMS -- currently does this over all axes including frequency, may not be the right thing to do
-           phi_rmss.append(np.std(ao[:, antenna, :, pol]))
+# Then find RMS -- over time axis only
+           phi_rmss.append(np.std(ao[:, antenna, :, pol], axis=0))
+#           print np.std(ao[:, antenna, :, pol], axis=0)
     return phi_rmss
 
 def histo_diffs(diffs, obsid):
@@ -89,12 +91,13 @@ def histo_diffs(diffs, obsid):
 def histo_rmss(rmss, obsid):
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    n, bins, patches = ax.hist(rmss, bins = 60, range=[0, 360])
+    n, bins, patches = ax.hist(rmss, bins = 60, range=[0, 1.0])
     peak = bins[np.where(n == n.max())][0]
     ax.axvline(x=np.median(rmss), color="red")
     ax.axvline(x=peak, color="orange")
     ax.set_xlabel("Phase change / degrees")
-    at = AnchoredText("Median: {0:3.0f}deg\nPeak: {1:3.0f}deg\nStdev: {2:3.0f}deg".format(np.median(rmss), peak, np.std(rmss)),
+#    at = AnchoredText("Median: {0:3.3f}deg\nPeak: {1:3.3f}deg\nStdev: {2:3.3f}deg".format(np.median(rmss), peak, np.std(rmss)),
+    at = AnchoredText("Median: {0}deg\nPeak: {1}deg\nStdev: {2}deg".format(np.median(rmss), peak, np.std(rmss)),
                   prop=dict(size=8), frameon=True,
                   loc=1,
                   )
