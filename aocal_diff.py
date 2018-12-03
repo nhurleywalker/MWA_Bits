@@ -44,7 +44,31 @@ def diff(ao, metafits, refant):
         diffs.append(temp)
     return diffs
 
-def histo(diffs, obsid):
+def phi_rms(ao, metafits, refant):
+    phi_rmss = []
+    non_nan_intervals = np.where([not np.isnan(ao[i, refant, :, 0]).all() for i in range(ao.n_int)])[0]
+    t_start = non_nan_intervals.min()
+    t_end = non_nan_intervals.max()
+# Calculate middle interval
+    t_mid = int((t_end - t_start)/2.0)
+# Divide through by refant
+# (Probably unnecessary)
+    ao = ao / ao[:, refant, :, :][:, np.newaxis, :, :]
+    ant_iter = xrange(ao.n_ant)
+    for a, antenna in enumerate(ant_iter):
+        temp = []
+# Only XX and YY
+        for pol in 0, 3:
+# Difference the complex gains
+# Divide all gains by t_mid value so central phase is zero (solves wrapping problem)
+           temp_gains = ao[:, antenna, :, pol] / ao[t_mid, antenna, :, pol]
+# then convert to angles
+           temp_angles = np.angle(ao[:, antenna, :, pol], deg=True)
+# Then find RMS -- currently does this over all axes including frequency, may not be the right thing to do
+           phi_rmss.append(np.std(ao[:, antenna, :, pol]))
+    return phi_rmss
+
+def histo_diffs(diffs, obsid):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(diffs, bins = 60, range=[-180, 180])
@@ -61,6 +85,24 @@ def histo(diffs, obsid):
     outname = obsid+"_histogram.png"
     fig.savefig(outname)
     return np.median(diffs), peak, np.std(diffs)
+
+def histo_rmss(rmss, obsid):
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    n, bins, patches = ax.hist(rmss, bins = 60, range=[0, 360])
+    peak = bins[np.where(n == n.max())][0]
+    ax.axvline(x=np.median(diffs), color="red")
+    ax.axvline(x=peak, color="orange")
+    ax.set_xlabel("Phase change / degrees")
+    at = AnchoredText("Median: {0:3.0f}deg\nPeak: {1:3.0f}deg\nStdev: {2:3.0f}deg".format(np.median(rmss), peak, np.std(rmss)),
+                  prop=dict(size=8), frameon=True,
+                  loc=1,
+                  )
+    at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+    ax.add_artist(at)
+    outname = obsid+"_rms_histogram.png"
+    fig.savefig(outname)
+    return np.median(rmss), peak, np.std(rmss)
 
 def phase_map(diffs, metafits, names, obsid):
     fig = plt.figure(figsize = (10,8))
@@ -99,6 +141,8 @@ if __name__ == '__main__':
     parser.add_option("-v", "--verbose", action="count", dest="verbose", help="-v info, -vv debug")
     parser.add_option("--outdir", default=None, dest="outdir", help="output directory [default: same as binfile]")
     parser.add_option("--names", action="store_true", default=False, dest="names", help="Plot tile names on phase map")
+    parser.add_option("--rms", action="store_true", default=False, dest="rms", help="Plot rms histogram as well as del_phi")
+# TO ADD: LOG HISTOGRAMS OPTION
 #    parser.add_option("--output", default=None, dest="output", help="output names [default: OBSID_histogram.png and OBSID_phasemap.png")
 #    parser.add_option("--marker", default=',', dest="marker", type="string", help="matplotlib marker [default: %default]")
 #    parser.add_option("--markersize", default=2, dest="markersize", type="int", help="matplotlib markersize [default: %default]")
@@ -117,8 +161,7 @@ if __name__ == '__main__':
     obsid = filename[0:10]
     diffs = np.array(diff(ao, options.metafits, options.refant))
 # Flatten array and delete NaNs for histogram
-    median, peak, std = histo(diffs[np.logical_not(np.isnan(diffs))].flatten(), obsid)
-
+    median, peak, std = histo_diffs(diffs[np.logical_not(np.isnan(diffs))].flatten(), obsid)
     csv_out(obsid, median, peak, std)
 
     if options.metafits is not None:
@@ -128,3 +171,8 @@ if __name__ == '__main__':
 # Could also take the average of a few frequencies, but it doesn't change anything
 #            diffs = np.average(diffs[:, 0, 12:20], axis=1)
             phase_map(diffs, options.metafits, options.names, obsid)
+
+# New option: plot RMS
+    if options.rms is True:
+        rmss = np.array(phi_rms(ao, options.metafits, options.refant))
+        median, peak, std = histo_rmss(diffs[np.logical_not(np.isnan(rmss))].flatten(), obsid)
