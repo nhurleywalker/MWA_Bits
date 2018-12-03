@@ -175,4 +175,4 @@ if __name__ == '__main__':
 # New option: plot RMS
     if options.rms is True:
         rmss = np.array(phi_rms(ao, options.metafits, options.refant))
-        median, peak, std = histo_rmss(diffs[np.logical_not(np.isnan(rmss))].flatten(), obsid)
+        median, peak, std = histo_rmss(rmss[np.logical_not(np.isnan(rmss))].flatten(), obsid)
