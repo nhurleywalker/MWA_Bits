@@ -91,7 +91,7 @@ def histo_rmss(rmss, obsid):
     ax = fig.add_subplot(111)
     n, bins, patches = ax.hist(rmss, bins = 60, range=[0, 360])
     peak = bins[np.where(n == n.max())][0]
-    ax.axvline(x=np.median(diffs), color="red")
+    ax.axvline(x=np.median(rmss), color="red")
     ax.axvline(x=peak, color="orange")
     ax.set_xlabel("Phase change / degrees")
     at = AnchoredText("Median: {0:3.0f}deg\nPeak: {1:3.0f}deg\nStdev: {2:3.0f}deg".format(np.median(rmss), peak, np.std(rmss)),
