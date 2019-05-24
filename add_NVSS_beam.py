@@ -36,5 +36,5 @@ if __name__ == "__main__":
         parser.print_help()
         sys.exit()
 
-    add_tgss_beam(results.infits, results.outfits)
+    add_nvss_beam(results.infits, results.outfits)
 
