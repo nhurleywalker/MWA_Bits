@@ -20,7 +20,7 @@ def new_fk5_template(ra, dec, nx, ny, pixscale, output, overwrite=False):
         w.wcs.crval = [ra, dec]
         w.wcs.ctype = ["RA---SIN", "DEC--SIN"]
         header = w.to_header()
-        data = np.zeros([nx, ny])
+        data = np.zeros([nx, ny], dtype="float32")
         new = fits.PrimaryHDU(data,header=header) #create new hdu
         newlist = fits.HDUList([new]) #create new hdulist
         newlist.writeto(output, overwrite=True)
