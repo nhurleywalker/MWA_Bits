@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 
+''' Try to create files in the format required by https://sourceforge.net/p/wsclean/wiki/ATermCorrection/ '''
+
 from astropy.io import fits
 import astropy.units as u
 from astropy import wcs
