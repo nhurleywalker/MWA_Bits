@@ -19,8 +19,8 @@ def RADecToLM(RA, Dec, RA_pc, Dec_pc):
     cosDec = np.cos(Dec)
     sinDec0 = np.sin(Dec_pc)
     cosDec0 = np.cos(Dec_pc)
-    l = cosDec * sinDeltaAlpha;
-    m = sinDec*cosDec0 - cosDec*sinDec0*cosDeltaAlpha;
+    l = cosDec * sinDeltaAlpha
+    m = sinDec*cosDec0 - cosDec*sinDec0*cosDeltaAlpha
     return l, m
 
 def unwrap(RA):
@@ -49,8 +49,8 @@ if __name__ == "__main__":
     fits_dx = results.prefix+"_delx.fits"
     fits_dy = results.prefix+"_dely.fits"
 
-    out_dl = results.prefix+"_dl.fits"
-    out_dm = results.prefix+"_dm.fits"
+    out = results.prefix+"_dldm.fits"
+#    out_dm = results.prefix+"_dm.fits"
 
     if results.RA_pc is None or results.Dec_pc is None:
         hdu = fits.open(fits_dx)
@@ -111,8 +111,23 @@ if __name__ == "__main__":
     d_l = d_l.reshape((hdu_dx[0].data.shape[0],hdu_dx[0].data.shape[1]))
     d_m = d_m.reshape((hdu_dx[0].data.shape[0],hdu_dx[0].data.shape[1]))
     print("Writing d_l, d_m at {0}".format(datetime.now()))
-    hdu_dx[0].data = d_l.astype(np.float32)
-    hdu_dx.writeto(out_dl, overwrite=True)
-    hdu_dx[0].data = d_m.astype(np.float32)
-    hdu_dx.writeto(out_dm, overwrite=True)
+# Move the frequency header information to the 4th axis
+    hdu_dx[0].header["CTYPE4"] = hdu_dx[0].header["CTYPE3"]
+    hdu_dx[0].header["CRPIX4"] = hdu_dx[0].header["CRPIX3"]
+    hdu_dx[0].header["CRVAL4"] = hdu_dx[0].header["CRVAL3"]
+    hdu_dx[0].header["CDELT4"] = hdu_dx[0].header["CDELT3"]
+    hdu_dx[0].header["CUNIT4"] = hdu_dx[0].header["CUNIT3"]
+    hdu_dx[0].header["CTYPE3"] = "MATRIX"
+    hdu_dx[0].header["CRPIX3"] = 1.0
+    hdu_dx[0].header["CRVAL3"] = 0.0
+    hdu_dx[0].header["CDELT3"] = 1.0
+    hdu_dx[0].header["CUNIT3"] = ("", "") # Remove comment about frequency
+# Insert the new data
+    hdu_dx[0].data = np.array([[d_l.astype(np.float32), d_m.astype(np.float32)]])
+    hdu_dx.writeto(out, overwrite=True)
+    
+#    hdu_dx[0].data = d_l.astype(np.float32)
+#    hdu_dx.writeto(out_dl, overwrite=True)
+#    hdu_dx[0].data = d_m.astype(np.float32)
+#    hdu_dx.writeto(out_dm, overwrite=True)
 
