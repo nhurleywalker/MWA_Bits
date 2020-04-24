@@ -9,8 +9,6 @@ import numpy as np
 import psutil
 # Parallelise the code
 import multiprocessing
-# multiple cores support
-import pprocess
 
 __author__ = ["Natasha Hurley-Walker"]
 __date__ = "2020-04-24"
@@ -61,7 +59,7 @@ if __name__ == "__main__":
     contfile = infile.replace(".fits", "_moving_median.fits")
     binwidth = options.binwidth
 
-    if results.cores is None:
+    if options.cores is None:
         cores = multiprocessing.cpu_count()
     else:
         cores = results.cores
@@ -77,6 +75,7 @@ if __name__ == "__main__":
     # We need to order our arguments by an index, since the results will be returned
     # in whatever order the pooled tasks finish
     n = 0
+    args = []
     # TODO: Check this doesn't blow up memory usage; I may have to slice
     for i in range(binwidth/2, nchans - binwidth/2):
         args.append((n, i-binwidth/2, i+binwidth/2, data))
@@ -96,18 +95,17 @@ if __name__ == "__main__":
 #    for i in range(binwidth/2, nchans - binwidth/2):
 #        med[:,i,:,:] = np.median(data[:,i-binwidth/2:i+binwidth/2,:,:], axis=1)
 
-    indices, medianss = map(list, zip(*results))
+    indices, medians = map(list, zip(*results))
     # Order correctly
     ind = np.argsort(indices)
     medians = np.array(medians)
-    print(medians.shape)
     medians = medians[ind]
-    print(medians.shape)
+    medians = medians.reshape((medians.shape[1], medians.shape[0], medians.shape[2], medians.shape[3]))
+    med[:,binwidth/2:nchans-binwidth/2,:,:] = medians
 #    # Flatten list of lists
 #    o = [item for sublist in offsets for item in sublist]
 #    # Make into array and apply
 #    x += np.array(o)
-
 
     # Handle the edges with a single median across (half the binwidth) channels
     # TODO: Use the right numpy function (tile?) to make this easier to read
@@ -122,6 +120,6 @@ if __name__ == "__main__":
     # Re-flag the central channel
 #    data[:,54,:,:] = np.nan*np.ones(data[:,54,:,:].shape)
     hdu[0].data = data - med
-    hdu.writeto(outfile)
+    hdu.writeto(outfile, overwrite=True)
     hdu[0].data = med 
-    hdu.writeto(contfile)
+    hdu.writeto(contfile, overwrite=True)
