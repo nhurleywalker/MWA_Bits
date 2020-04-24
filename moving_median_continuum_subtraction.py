@@ -40,6 +40,17 @@ if __name__ == "__main__":
     for i in range(binwidth/2, nchans - binwidth/2):
         med[:,i,:,:] = np.median(data[:,i-binwidth/2:i+binwidth/2,:,:], axis=1)
 
+    # Handle the edges with a single median across (half the binwidth) channels
+    # TODO: Use the right numpy function (tile?) to make this easier to read
+    # TODO: Or come up with a nicer way of handling this, based on feedback from the group
+    med_start = np.median(data[:,0:binwidth/2,:,:], axis=1)
+    med_end = np.median(data[:,nchans-binwidth/2:nchans,:,:], axis=1)
+    for i in range(0, binwidth/2):
+        med[:,i,:,:] = med_start
+    for i in range(nchans-binwidth/2, nchans):
+        med[:,i,:,:] = med_end
+
+    # Re-flag the central channel
     data[:,54,:,:] = np.nan*np.ones(data[:,54,:,:].shape)
     hdu[0].data = data - med
     hdu.writeto(outfile)
