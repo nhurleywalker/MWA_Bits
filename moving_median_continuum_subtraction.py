@@ -34,9 +34,8 @@ def _fslice_median(args):
         import traceback
         raise Exception("".join(traceback.format_exception(*sys.exc_info())))
 
-
-def slice_median(index, i, j, data):
-    median = np.nanmedian(data[:,i:j,:,:], axis=1)
+def slice_median(index, chunk):
+    median = np.nanmedian(chunk, axis=1)
     return index, median
 
 if __name__ == "__main__":
@@ -66,7 +65,9 @@ if __name__ == "__main__":
 
     hdu = fits.open(infile)
     data = hdu[0].data
-    nchans = data.shape[1] #0 pol, 2 Dec, 3 RA
+    nchans = data.shape[1]
+    ny = data.shape[2]
+    nx = data.shape[3]
 # Replace Slice 55 with a copy of Slice 56 to avoid having to use nanmedian
 #    data[:,54,:,:] = data[:,55,:,:]
 
@@ -74,12 +75,14 @@ if __name__ == "__main__":
 
     # We need to order our arguments by an index, since the results will be returned
     # in whatever order the pooled tasks finish
-    n = 0
     args = []
-    # TODO: Check this doesn't blow up memory usage; I may have to slice
-    for i in range(binwidth/2, nchans - binwidth/2):
-        args.append((n, i-binwidth/2, i+binwidth/2, data))
-        n+=1
+# Hopefully this makes views on the data rather than copies!
+    for x in range(0, nx):
+        for y in range(0, ny):
+            n = 0
+            for i in range(binwidth/2, nchans - binwidth/2):
+                args.append((n, y, x, data[:,i-binwidth/2:i+binwidth/2,y,x]))
+                n+=1
 
 #    # start a new process for each median
     pool = multiprocessing.Pool(processes=cores, maxtasksperchild=1)
@@ -95,11 +98,14 @@ if __name__ == "__main__":
 #    for i in range(binwidth/2, nchans - binwidth/2):
 #        med[:,i,:,:] = np.median(data[:,i-binwidth/2:i+binwidth/2,:,:], axis=1)
 
-    indices, medians = map(list, zip(*results))
+    cindices, yindices, xindices, medians = map(list, zip(*results))
     # Order correctly
-    ind = np.argsort(indices)
+    cind = np.argsort(cindices)
+    yind = np.argsort(yindices)
+    xind = np.argsort(xindices)
     medians = np.array(medians)
-    medians = medians[ind]
+    medians = medians[cind,yind,xind]
+    print medians.shape
     medians = medians.reshape((medians.shape[1], medians.shape[0], medians.shape[2], medians.shape[3]))
     med[:,binwidth/2:nchans-binwidth/2,:,:] = medians
 #    # Flatten list of lists
