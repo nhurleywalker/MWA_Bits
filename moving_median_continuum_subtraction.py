@@ -31,7 +31,7 @@ if __name__ == "__main__":
     hdu = fits.open(infile)
     data = hdu[0].data
     nchans = data.shape[1] #0 pol, 2 Dec, 3 RA
-    med = np.zeros(hdu[0].data.shape)
+    med = np.zeros(hdu[0].data.shape, dtype="float32")
 
     # Calculate the moving average
     for i in range(binwidth/2, nchans - binwidth/2):
@@ -47,7 +47,7 @@ if __name__ == "__main__":
     for i in range(nchans-binwidth/2, nchans):
         med[:,i,:,:] = med_end
 
-    hdu[0].data = data - med
+    hdu[0].data = (data - med).astype("float32")
     hdu.writeto(outfile, overwrite=True)
-    hdu[0].data = med 
+    hdu[0].data = med.astype("float32") 
     hdu.writeto(contfile, overwrite=True)
