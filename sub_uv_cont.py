@@ -18,10 +18,12 @@ flag = mset.getcol("FLAG")
 mdata = np.ma.masked_array(data, mask=flag)
 
 # Assume channel widths of 24
-for start in np.arange(0, data.shape[1], 128):
-    end = start+128
+chanwidth = 24
+
+for start in np.arange(0, data.shape[1], chanwidth):
+    end = start + chanwidth
     avg = np.ma.mean(mdata[:,start:end,:], axis=1)
-    avg_rep = np.repeat(avg[:, np.newaxis, :], 24, axis=1)
+    avg_rep = np.repeat(avg[:, np.newaxis, :], chanwidth, axis=1)
     data[:,start:end,:] = data[:,start:end,:] - avg_rep
 
 # Have to make a copy first
@@ -31,4 +33,3 @@ mset_sub.putcol("CORRECTED_DATA", data)
 
 mset.close()
 mset_sub.close()
-~                                  
