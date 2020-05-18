@@ -30,58 +30,38 @@ if __name__ == "__main__":
     # Have to make a copy first
     mset_sub = mset.copy(msfile.replace(".ms", "_sub.ms"), deep = True)
 
+    data = mset.getcol(options.datacolumn)
+    flag = mset.getcol("FLAG")
+    nchans = data.shape[1] #2 time and baseline, 1 channel, 0 pol
+    ## There are also values set to NaN that are not in the flag table
+    new_flags = np.isnan(data)
+    # If the data is NaN OR the data are flagged then we want to flag it
+    total_flags = np.logical_or(flag, new_flags)
+    mdata = np.ma.masked_array(data, mask=total_flags, dtype="complex64")
+    avg = np.ma.zeros(mdata.shape, dtype="complex64")
+    avg.mask = total_flags
 
-    pols = [0, 1, 2, 3]
-    for pol in pols:
-        all_data = mset.getcol(options.datacolumn)
-        data = all_data[:,:,pol]
-# Free up memory
-        del all_data
-        all_flag = mset.getcol("FLAG")
-        flag = all_flag[:,:,pol]
-# Free up memory
-        del all_flag
+    # Calculate the moving average
+    for i in range(binwidth/2, nchans - binwidth/2):
+        avg[:,i,:] = np.ma.mean(mdata[:,i-binwidth/2:i+binwidth/2,:], axis=1)
 
-        nchans = data.shape[1] #2 time and baseline, 1 channel, 0 pol
+    # Handle the edges with a single mean across (half the binwidth) channels
+    avg_start = np.ma.mean(mdata[:,0:binwidth/2,:], axis=1)
+    avg_end = np.ma.mean(mdata[:,nchans-binwidth/2:nchans,:], axis=1)
+    for i in range(0, binwidth/2):
+        avg[:,i,:] = avg_start
+    for i in range(nchans-binwidth/2, nchans):
+        avg[:,i,:] = avg_end
 
-        ## There are also values set to NaN that are not in the flag table
-        new_flags = np.isnan(data)
-        # If the data is NaN OR the data are flagged then we want to flag it
-        total_flags = np.logical_or(flag, new_flags)
+    mset_sub = table(msfile.replace(".ms", "_sub.ms"), readonly = False)
+    new_data = mdata - avg
+    mset_sub.putcol(options.datacolumn, new_data)
+    mset_sub.close()
+mset.close()
 
-        mdata = np.ma.masked_array(data, mask=total_flags)
-# Free up memory
-        del data
-        del flag
-
-        avg = np.zeros(mdata.shape, dtype="complex")
-
-        # Calculate the moving average
-        for i in range(binwidth/2, nchans - binwidth/2):
-            avg[:,i] = np.ma.mean(mdata[:,i-binwidth/2:i+binwidth/2], axis=1)
-
-        # Handle the edges with a single mean across (half the binwidth) channels
-        avg_start = np.ma.mean(mdata[:,0:binwidth/2], axis=1)
-        avg_end = np.ma.mean(mdata[:,nchans-binwidth/2:nchans], axis=1)
-        for i in range(0, binwidth/2):
-            avg[:,i] = avg_start
-        for i in range(nchans-binwidth/2, nchans):
-            avg[:,i] = avg_end
-
-        mset_sub = table(msfile.replace(".ms", "_sub.ms"), readonly = False)
-        new_data = mset.getcol(options.datacolumn)
-        new_data[:,:,pol] = mdata - avg
-        mset_sub.putcol(options.datacolumn, new_data)
-        mset_sub.close()
-# Free up memory
-        del new_data
-        del mdata
-        del avg
-    mset.close()
-
-    # Old-fashioned binning: too many residuals
-    #    for start in np.arange(0, data.shape[1], binwidth):
-    #        end = start + binwidth
-    #        avg = np.ma.mean(mdata[:,start:end,:], axis=1)
-    #        avg_rep = np.repeat(avg[:, np.newaxis, :], binwidth, axis=1)
-    #        data[:,start:end,:] = data[:,start:end,:] - avg_rep
+# Old-fashioned binning: too many residuals
+#    for start in np.arange(0, data.shape[1], binwidth):
+#        end = start + binwidth
+#        avg = np.ma.mean(mdata[:,start:end,:], axis=1)
+#        avg_rep = np.repeat(avg[:, np.newaxis, :], binwidth, axis=1)
+#        data[:,start:end,:] = data[:,start:end,:] - avg_rep
