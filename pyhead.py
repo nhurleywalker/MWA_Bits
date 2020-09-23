@@ -22,7 +22,7 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
         else:
             inf=pyfits.open(file)
     except:
-        print "Could not open file %s\n" % file
+        print("Could not open file %s\n".format(file))
         return 0
 
     hdr=inf[extn].header
@@ -56,9 +56,9 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                     if (printextn):
                         s+="[%s]" % extn
                         
-                    print "%s[%s] = %s updated" % (s,key,val2)                
+                    print("%s[%s] = %s updated".format(s,key,val2))
             except:
-                print "Could not update keyword %s\n" % key
+                print("Could not update keyword %s\n".format(key))
         elif (cmd.lower() == "h"):
             val=arg
             if (val.count("$") > 0 and doparse):
@@ -84,9 +84,9 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                     if (printextn):
                         s+="[%s]" % extn
                         
-                    print "%s[HISTORY] = %s updated" % (s,val2)                
+                    print("%s[HISTORY] = %s updated".format(s,val2))
             except:
-                print "Could not update HISTORY\n"
+                print("Could not update HISTORY\n")
 
         elif (cmd.lower() == "d"):
             try:
@@ -97,9 +97,9 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                         s+="%s" % file
                     if (printextn):
                         s+="[%s]" % extn
-                    print "%s[%s] deleted" % (s,arg)
+                    print("%s[%s] deleted".format(s,arg))
             except:
-                print "Could not delete keyword %s\n" % arg
+                print("Could not delete keyword %s\n".format(arg))
         elif (cmd.lower() == "p"):
             if (arg.count("$") == 0 and (arg.count("*") > 0 or arg.count("?") > 0)):
                 cards=getcardmatches(hdr,arg)
@@ -111,9 +111,9 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                             s+="%s" % file
                         if (printextn):
                             s+="[%s]" % extn
-                        print "%s[%s] = %s" % (s,card,ret)
+                        print("%s[%s] = %s".format(s,card,ret))
                 else:
-                    print "Could not find keyword matching %s\n" % arg
+                    print("Could not find keyword matching %s\n".format(arg))
 
             else:
                 if (arg.count("$") > 0):
@@ -123,15 +123,15 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                     try:
                         ret=hdr.get(arg)
                     except:
-                        print "Could not find keyword %s\n" % arg
+                        print("Could not find keyword %s\n".format(arg))
                 s=""
                 if (printfile):
                     s+="%s" % file
                 if (printextn):
                     s+="[%s]" % extn
-                print "%s[%s] = %s" % (s,arg,ret)
+                print("%s[%s] = %s".format(s,arg,ret))
         else:
-            print "Unknown command %s" % arg
+            print("Unknown command %s".format(arg))
 
     if (update):
         inf.verify('fix')
@@ -156,7 +156,7 @@ def evalhdr(hdr,arg):
             y=arg2[i1+1:i1+i2+1]
             card=y            
         except:
-            print "Could not find keyword %s\n" % arg2[i1+1:i1+i2+1]
+            print("Could not find keyword %s\n".format(arg2[i1+1:i1+i2+1]))
             sys.exit(1)
         x=hdr.get(card)
         if (isinstance(x,bool)):
@@ -173,7 +173,7 @@ def evalhdr(hdr,arg):
     try:
         ret=(eval(arg2))
     except:
-        print "Could not evaluate expression %s: %s" % (arg,arg2)
+        print("Could not evaluate expression %s: %s".format(arg,arg2))
         sys.exit(1)
     return ret
 ######################################################################
@@ -198,18 +198,18 @@ def getcardmatches(hdr, template):
 def usage():
     (xdir,xname)=os.path.split(sys.argv[0])
 
-    print "Usage:  %s [-p keyword/expression] [-d keyword] [-u/-a keyword value/expression]  [-H value/expression] [-f <command_filename>] [-i] <filename(s)>" % xname
-    print "\t-p will print the value of the keyword"
-    print "\t-d will delete the keyword"
-    print "\t-u will update the keyword"
-    print "\t-a will add a keyword"
-    print "\t-H will add to the history"
-    print "\t-i will force ignoring of possible variables"
-    print "\tcommands can also be included in <command_filename>, without -s"
-    print "\tenclose expressions in single quotes"
-    print "\tkeywords to print can have wildcards (*,?)"
-    print "\tcannot mix expressions and wildcards"
-    print "\tfor Booleans, use pyfits.TRUE or pyfits.FALSE\n"
+    print("Usage:  %s [-p keyword/expression] [-d keyword] [-u/-a keyword value/expression]  [-H value/expression] [-f <command_filename>] [-i] <filename(s)>".format(xname))
+    print("\t-p will print(the value of the keyword")
+    print("\t-d will delete the keyword")
+    print("\t-u will update the keyword")
+    print("\t-a will add a keyword")
+    print("\t-H will add to the history")
+    print("\t-i will force ignoring of possible variables")
+    print("\tcommands can also be included in <command_filename>, without -s")
+    print("\tenclose expressions in single quotes")
+    print("\tkeywords to print(can have wildcards (*,?)")
+    print("\tcannot mix expressions and wildcards")
+    print("\tfor Booleans, use pyfits.TRUE or pyfits.FALSE\n")
     
 ######################################################################
 def main():
@@ -294,7 +294,7 @@ def main():
                             cmdlist.append('p')
                             arglist.append(string.join(x[1:],' '))
             except:
-                print "Unable to open file %s" % file
+                print("Unable to open file %s".format(file))
                     
 
     if (len(cmdlist)==0 and len(filelist)>0):
