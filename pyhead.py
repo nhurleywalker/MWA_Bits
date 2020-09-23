@@ -22,7 +22,7 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
         else:
             inf=pyfits.open(file)
     except:
-        print("Could not open file %s\n".format(file))
+        print("Could not open file {0}\n".format(file))
         return 0
 
     hdr=inf[extn].header
@@ -52,13 +52,13 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                 if (verbose):
                     s=""
                     if (printfile):
-                        s+="%s" % file
+                        s+="{0}".format(file)
                     if (printextn):
-                        s+="[%s]" % extn
+                        s+="[{0}]".format(extn)
                         
-                    print("%s[%s] = %s updated".format(s,key,val2))
+                    print("{0}[{1}] = {2} updated".format(s,key,val2))
             except:
-                print("Could not update keyword %s\n".format(key))
+                print("Could not update keyword {0}\n".format(key))
         elif (cmd.lower() == "h"):
             val=arg
             if (val.count("$") > 0 and doparse):
@@ -80,11 +80,11 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                 if (verbose):
                     s=""
                     if (printfile):
-                        s+="%s" % file
+                        s+="{0}".format(file)
                     if (printextn):
-                        s+="[%s]" % extn
+                        s+="[{0}]".format(extn)
                         
-                    print("%s[HISTORY] = %s updated".format(s,val2))
+                    print("{0}[HISTORY] = {1} updated".format(s,val2))
             except:
                 print("Could not update HISTORY\n")
 
@@ -94,12 +94,12 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                 if (verbose):
                     s=""
                     if (printfile):
-                        s+="%s" % file
+                        s+="{0}".format(file)
                     if (printextn):
-                        s+="[%s]" % extn
-                    print("%s[%s] deleted".format(s,arg))
+                        s+="[{0}]".format(extn)
+                    print("{0}[{1}] deleted".format(s,arg))
             except:
-                print("Could not delete keyword %s\n".format(arg))
+                print("Could not delete keyword {0}\n".format(arg))
         elif (cmd.lower() == "p"):
             if (arg.count("$") == 0 and (arg.count("*") > 0 or arg.count("?") > 0)):
                 cards=getcardmatches(hdr,arg)
@@ -108,12 +108,12 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                         ret=hdr.get(card)
                         s=""
                         if (printfile):
-                            s+="%s" % file
+                            s+="{0}".format(file)
                         if (printextn):
-                            s+="[%s]" % extn
-                        print("%s[%s] = %s".format(s,card,ret))
+                            s+="[{0}]".format(extn)
+                        print("{0}[{1}] = {2}".format(s,card,ret))
                 else:
-                    print("Could not find keyword matching %s\n".format(arg))
+                    print("Could not find keyword matching {0}\n".format(arg))
 
             else:
                 if (arg.count("$") > 0):
@@ -123,15 +123,15 @@ def pyhead(file, extn, cmdlist, arglist, verbose=1, printfile=1, printextn=1, up
                     try:
                         ret=hdr.get(arg)
                     except:
-                        print("Could not find keyword %s\n".format(arg))
+                        print("Could not find keyword {0}\n".format(arg))
                 s=""
                 if (printfile):
-                    s+="%s" % file
+                    s+="{0}".format(file)
                 if (printextn):
-                    s+="[%s]" % extn
-                print("%s[%s] = %s".format(s,arg,ret))
+                    s+="[{0}]".format(extn)
+                print("{0}[{1}] = {2}".format(s,arg,ret))
         else:
-            print("Unknown command %s".format(arg))
+            print("Unknown command {0}".format(arg))
 
     if (update):
         inf.verify('fix')
@@ -156,7 +156,7 @@ def evalhdr(hdr,arg):
             y=arg2[i1+1:i1+i2+1]
             card=y            
         except:
-            print("Could not find keyword %s\n".format(arg2[i1+1:i1+i2+1]))
+            print("Could not find keyword {0}\n".format(arg2[i1+1:i1+i2+1]))
             sys.exit(1)
         x=hdr.get(card)
         if (isinstance(x,bool)):
@@ -168,12 +168,12 @@ def evalhdr(hdr,arg):
             try:
                 x=float(x)
             except:
-                x="\"%s\"" % x
-        arg2="%s %s %s" % (arg2[0:i1],x,arg2[i1+i2+1:len(arg2)+1])
+                x="\"{0}\"".format(x)
+        arg2="{0} {1} {2}".format(arg2[0:i1],x,arg2[i1+i2+1:len(arg2)+1])
     try:
         ret=(eval(arg2))
     except:
-        print("Could not evaluate expression %s: %s".format(arg,arg2))
+        print("Could not evaluate expression {0}: {1}".format(arg,arg2))
         sys.exit(1)
     return ret
 ######################################################################
@@ -198,7 +198,7 @@ def getcardmatches(hdr, template):
 def usage():
     (xdir,xname)=os.path.split(sys.argv[0])
 
-    print("Usage:  %s [-p keyword/expression] [-d keyword] [-u/-a keyword value/expression]  [-H value/expression] [-f <command_filename>] [-i] <filename(s)>".format(xname))
+    print("Usage:  {0} [-p keyword/expression] [-d keyword] [-u/-a keyword value/expression]  [-H value/expression] [-f <command_filename>] [-i] <filename(s)>".format(xname))
     print("\t-p will print(the value of the keyword")
     print("\t-d will delete the keyword")
     print("\t-u will update the keyword")
@@ -257,7 +257,7 @@ def main():
         if (arg.startswith("-u") or arg.startswith("-a")):
             # update
             cmdlist.append('u')
-            arglist.append("%s %s" % (sys.argv[i+1],sys.argv[i+2]))
+            arglist.append("{0} {1}".format(sys.argv[i+1],sys.argv[i+2]))
             i+=2
             isarg=1    
             update+=1
@@ -285,7 +285,7 @@ def main():
                         x=lines[i].split()
                         if (x[0].find('u')> -1 or x[0].find('a')> -1):
                             cmdlist.append('u')
-                            arglist.append("%s %s" % (x[1],string.join(x[2:],' ')))
+                            arglist.append("{0} {1}".format(x[1],string.join(x[2:],' ')))
                         if (x[0].find('d')> -1):
                             cmdlist.append('d')
                             arglist.append(x[1])
@@ -294,7 +294,7 @@ def main():
                             cmdlist.append('p')
                             arglist.append(string.join(x[1:],' '))
             except:
-                print("Unable to open file %s".format(file))
+                print("Unable to open file {0}".format(file))
                     
 
     if (len(cmdlist)==0 and len(filelist)>0):
