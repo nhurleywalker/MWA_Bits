@@ -6,7 +6,7 @@ import numpy as np
 import sys
 #import os
 #from datetime import datetime
-from casacore.tables import table, taql, maketabdesc, makescacoldesc
+from casacore.tables import table #, taql, maketabdesc, makescacoldesc
 #from astropy.time import Time
 #import astropy.units as u
 
@@ -15,13 +15,11 @@ from casacore.tables import table, taql, maketabdesc, makescacoldesc
 
 
 #Opening ms files
-print(sys.argv)
-sys.stdout.flush()
-ms = sys.argv[1]
-mset = table(ms, readonly=True)
-
-time = list(set(mset.getcol("TIME")))
-
-print(len(time))
-
-mset.close()
+#print(sys.argv)
+#sys.stdout.flush()
+if sys.argv[1] is not None:
+    ms = sys.argv[1]
+    mset = table(ms, readonly=True, ack=False)
+    time = list(set(mset.getcol("TIME")))
+    print(len(time))
+    mset.close()
