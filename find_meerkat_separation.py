@@ -16,4 +16,4 @@ coords = SkyCoord(ras, decs, unit=(u.hour, u.deg), frame='fk5')
 c0 = SkyCoord(sys.argv[2], sys.argv[3], unit=(u.hour, u.deg), frame='fk5')
 
 for i in range(0, len(ras)):
-    print("{0}, {1}, {2:3.0f} arcmin".format(ras[i], decs[i], (c0.separation(coords[i]).deg)*60))
+    print("{0} {1} {2} : {3:3.0f} arcmin".format(df["Name"][i], ras[i], decs[i], (c0.separation(coords[i]).deg)*60))
