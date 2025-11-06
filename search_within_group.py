@@ -12,7 +12,7 @@ import os
 # First we need to read all the tables that we've been fed
 # For now, hardcode; later we figure out a way of specifying inputs
 
-hdus = sorted(glob("*corrected.fits"))
+hdus = sorted(glob("*warp-corrected_wbeam.fits"))
 
 minra = 0.0
 maxra = 360
@@ -31,24 +31,6 @@ maxra-=2
 mindec+=2
 maxdec-=2
 
-# So there is no point looking at sources beyond those limits -- you will always get false positives caused by the shifting of the PB
-# So now we want to do some cross-matching between each catalogue.
-# The least important sources are actually those that are there for every observation
-# The most important are those which disappear!
-# That will happen a lot due to the ionosphere and noise anyway
-# There will probably also be false positives from clusters of sources -- that's fine for now
-# Since the ionosphere has been corrected for we want to do something fairly strict -- actually it's still terrible
-# A 25" cross-matching radius is reasonable
-# We want to select compact sources so make sure that happens
-
-
-# Once we have all the tables selected within that region we want to make a concatenated table that has all of the sources in it.
-# What we do next depends on how the different cross-matchers work. If any return e.g. a table with fewer entries than we expect, then we can replace the missing entries with
-# a representative RMS or forced extraction.
-
-# Let's look at how astropy handles multiple crossmatches.
-# Astropy sucks and doesn't handle multiple crossmatches. So I would have to write my own... which would mean doing up to (45/5)*(45/5 - 1)/2 = 36 matches. That's not... completely insane but it doesn't feel that great to replicate functionality that already exists in STILTS.
-
 # Create a matched table with STILTS
 nin = len(hdus)
 xrad = 25 #arcsec
@@ -59,7 +41,7 @@ outfile = "test_auto_join.fits"
 icmd = "".join([f"icmd{i+1}=\'select \"ra > {minra} && ra < {maxra} && dec < {maxdec} && dec > {mindec}\"\' " for i in range(0, nin)])
 # Always include an entry -- a transient could be in a single frame
 joincmd = "".join([f"join{i+1}='always' " for i in range(0, nin)])
-# Sky crossmatch of 25" was found to be necessary -- actually a bit worried about the ionospheric corrections TODO: check
+# Sky crossmatch of 25" was found to be necessary -- this is not the ionosphere, this is sources being decomposed in different ways
 valuescmd = "".join([f"values{i+1}='ra dec' " for i in range(0, nin)])
 incmd = "".join([f"in{i+1}={hdus[i]} " for i in range(0, nin)])
 stiltscmd = f"nin={nin} matcher='sky' params={xrad} multimode='group' out={outfile} {incmd} {icmd} {valuescmd} {joincmd}"
@@ -89,7 +71,7 @@ jointab['mean_on_local_rms'] = np.nanmean([jointab[f'local_rms_{i+1}'] for i in 
 
 # Now we have compact transient sources, for every missing entry, go and look up the RMS in the associated RMS map (just take the value at that pixel).
 for i in range(0, nin):
-    rmsmap = hdus[i].replace('_comp_warp-corrected.fits', '_warp_rms.fits')
+    rmsmap = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp_rms.fits')
     mask = np.isnan(jointab[f'int_flux_{i+1}'])
     rmshdu = fits.open(rmsmap)
     w = WCS(rmshdu[0].header, naxis=2)
@@ -131,8 +113,6 @@ jointab = Table(fits.open('sparse.fits')[1].data)
 iso_mask = ~(jointab['GroupSize'] > 1)
 
 final_mask = np.logical_and(np.logical_and(compact_mask, iso_mask), spatial_mask)
-
-# Only write compact sources
 jointab[final_mask].write('isocompact_join_table.fits', format='fits', overwrite=True)
 # Write everything while we're debugging
 #jointab.write('modified_join_table.fits', format='fits', overwrite=True)
