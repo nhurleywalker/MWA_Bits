@@ -73,15 +73,22 @@ jointab['mean_on_local_rms'] = np.nanmean([jointab[f'local_rms_{i+1}'] for i in 
 
 # Now we have compact transient sources, for every missing entry, go and look up the RMS in the associated RMS map (just take the value at that pixel).
 for i in range(0, nin):
-    rmsmap = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp_rms.fits')
     mask = np.isnan(jointab[f'int_flux_{i+1}'])
+
+    rmsmap = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp_rms.fits')
     rmshdu = fits.open(rmsmap)
     w = WCS(rmshdu[0].header, naxis=2)
     index = w.world_to_array_index(coords[mask])
     rms = rmshdu[0].data[index]
-    jointab[f'int_flux_{i+1}'][mask] = 0.0
-    jointab[f'peak_flux_{i+1}'][mask] = 0.0
     jointab[f'local_rms_{i+1}'][mask] = rms
+
+    img = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp.fits')
+    imghdu = fits.open(img)
+    w = WCS(imghdu[0].header, naxis=2)
+    index = w.world_to_array_index(coords[mask])
+    flux = imghdu[0].data[index]
+    jointab[f'int_flux_{i+1}'][mask] = flux
+    jointab[f'peak_flux_{i+1}'][mask] = flux
 
 # We need some summary stats for the next bit to work
 fluxes = np.empty((nin, len(jointab)), dtype='float32')
@@ -120,32 +127,39 @@ jointab[final_mask].write('isocompact_join_table.fits', format='fits', overwrite
 #jointab.write('modified_join_table.fits', format='fits', overwrite=True)
 
 # Select interesting sources and make useful plots
-eta_mask = jointab['eta'] > 10
+eta_mask = jointab['eta'] > 5
 var_mask = jointab['var'] > 0.05
-transients_mask = np.logical_and(np.logical_and(np.logical_and(final_mask, eta_mask), var_mask))
+transients_mask = np.logical_and(np.logical_and(final_mask, eta_mask), var_mask)
 
 boxwidth = 200
 for src in jointab[transients_mask]:
+    # Get some source stats
     pos = SkyCoord(src['mean_ra'], src['mean_dec'], unit=(u.deg, u.deg), frame='fk5')
+    radec = pos.to_string('hmsdms', sep=":", precision=1)
     ra, dec = pos.to_string('hmsdms', sep="", precision=0).split(" ")
     srcname = f"GPM_J{ra}{dec}"
     eta, var = src['eta'], src['var']
-    fluxes = [src[f'peak_flux_{i+1}'] for i in range(0, nin)]
-    errs = [src[f'local_rms_{i+1}'] for i in range(0, nin)]
+    fluxes = np.array([src[f'peak_flux_{i+1}'] for i in range(0, nin)])
+    errs = np.array([src[f'local_rms_{i+1}'] for i in range(0, nin)])
+    snr = src['mean_on_peak_flux']/src['mean_on_local_rms']
     # Make a light curve
-    fig = plt.figure(figsize=(5,5))
-    ax.set_title(f"{srcname} S/N={snr:3.1f} $\eta =${eta:3.1f} $V=$ {var:3.1f}")
+    fig = plt.figure(figsize=(8,5))
     ax = fig.add_subplot(111)
-    ax.errorbar(1000*fluxes, yerr=errs)
+    ax.set_title(f"Pos={radec}   S/N={snr:3.1f}   $\eta =${eta:3.1f}   $V =${var:3.1f}")
+    if snr > 10:
+        color = 'red'
+    else:
+        color = 'grey'
+    ax.errorbar(x=np.arange(0, nin), y=1000*fluxes, yerr=1000*errs, color=color)
     ax.set_ylabel("Flux density / mJy")
-    ax.set_xlabel("Time / 5 minutes")
-    fig.savefig(f"{srcname}_lightcurve.png")
+    ax.set_xlabel("Time / minutes")
+    fig.savefig(f"{srcname}_lightcurve.png", bbox_inches="tight")
     # Make an animated gif
     for i in range(0, nin):
         img = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp.fits')
         imghdu = fits.open(img)
         w = WCS(imghdu[0].header, naxis=2)
-        cutout = Cutout2D(imghdu[0].data, (ra.fk5.deg, deg.fk5.deg), (boxwidth, boxwidth), wcs = w)
+        cutout = Cutout2D(imghdu[0].data, pos, (boxwidth, boxwidth), wcs = w)
         fig = plt.figure(figsize=(3,3))
         ax = fig.add_subplot(111)
         ax.imshow(cutout.data, vmin = np.nanmin(errs), vmax = np.nanmax(fluxes), origin="lower")
@@ -154,9 +168,7 @@ for src in jointab[transients_mask]:
         plt.margins(y=0)
         fig.savefig("{0}_{1:02d}.png".format(srcname, i), bbox_inches="tight", dpi=100, pad_inches = 0)
         plt.close(fig)
-    os.system(f"convert {srcname}_??.png {srcname}_animation.gif"
+    os.system(f"convert {srcname}_??.png {srcname}_animation.gif")
     madefiles = glob(f"{srcname}_??.png")
     for f in madefiles:
         os.remove(f)
-
-
