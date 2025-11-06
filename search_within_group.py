@@ -6,6 +6,8 @@ from astropy.table import Table
 from astropy.coordinates import SkyCoord
 from astropy import units as u
 from astropy.wcs import WCS
+from matplotlib import pyplot as plt
+from astropy.nddata import Cutout2D
 import numpy as np
 import os
 
@@ -117,8 +119,44 @@ jointab[final_mask].write('isocompact_join_table.fits', format='fits', overwrite
 # Write everything while we're debugging
 #jointab.write('modified_join_table.fits', format='fits', overwrite=True)
 
-    
+# Select interesting sources and make useful plots
+eta_mask = jointab['eta'] > 10
+var_mask = jointab['var'] > 0.05
+transients_mask = np.logical_and(np.logical_and(np.logical_and(final_mask, eta_mask), var_mask))
 
-
+boxwidth = 200
+for src in jointab[transients_mask]:
+    pos = SkyCoord(src['mean_ra'], src['mean_dec'], unit=(u.deg, u.deg), frame='fk5')
+    ra, dec = pos.to_string('hmsdms', sep="", precision=0).split(" ")
+    srcname = f"GPM_J{ra}{dec}"
+    eta, var = src['eta'], src['var']
+    fluxes = [src[f'peak_flux_{i+1}'] for i in range(0, nin)]
+    errs = [src[f'local_rms_{i+1}'] for i in range(0, nin)]
+    # Make a light curve
+    fig = plt.figure(figsize=(5,5))
+    ax.set_title(f"{srcname} S/N={snr:3.1f} $\eta =${eta:3.1f} $V=$ {var:3.1f}")
+    ax = fig.add_subplot(111)
+    ax.errorbar(1000*fluxes, yerr=errs)
+    ax.set_ylabel("Flux density / mJy")
+    ax.set_xlabel("Time / 5 minutes")
+    fig.savefig(f"{srcname}_lightcurve.png")
+    # Make an animated gif
+    for i in range(0, nin):
+        img = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp.fits')
+        imghdu = fits.open(img)
+        w = WCS(imghdu[0].header, naxis=2)
+        cutout = Cutout2D(imghdu[0].data, (ra.fk5.deg, deg.fk5.deg), (boxwidth, boxwidth), wcs = w)
+        fig = plt.figure(figsize=(3,3))
+        ax = fig.add_subplot(111)
+        ax.imshow(cutout.data, vmin = np.nanmin(errs), vmax = np.nanmax(fluxes), origin="lower")
+        plt.axis("off")
+        plt.margins(x=0)
+        plt.margins(y=0)
+        fig.savefig("{0}_{1:02d}.png".format(srcname, i), bbox_inches="tight", dpi=100, pad_inches = 0)
+        plt.close(fig)
+    os.system(f"convert {srcname}_??.png {srcname}_animation.gif"
+    madefiles = glob(f"{srcname}_??.png")
+    for f in madefiles:
+        os.remove(f)
 
 
