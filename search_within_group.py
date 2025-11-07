@@ -28,10 +28,10 @@ for h in hdus:
     maxdec = np.nanmin([maxdec, np.nanmax(tab["dec"])])
 
 # Shave off a small margin -- this avoids really terrible parts of the images
-minra+=2
-maxra-=2
-mindec+=2
-maxdec-=2
+minra+=3
+maxra-=3
+mindec+=3
+maxdec-=3
 
 # Create a matched table with STILTS
 nin = len(hdus)
@@ -71,9 +71,10 @@ spatial_mask = coords.separation(cent) < 10*u.deg
 jointab['mean_on_peak_flux'] = np.nanmean([jointab[f'peak_flux_{i+1}'] for i in range(0, nin)], axis=0)
 jointab['mean_on_local_rms'] = np.nanmean([jointab[f'local_rms_{i+1}'] for i in range(0, nin)], axis=0)
 
-# Now we have compact transient sources, for every missing entry, go and look up the RMS in the associated RMS map (just take the value at that pixel).
+# Now we have compact transient sources in a reliable region, for every missing entry, go and look up the RMS in the associated RMS map (just take the value at that pixel).
+# Downselecting the sources a bit here helps with the RAM management which can otherwise blow up
 for i in range(0, nin):
-    mask = np.isnan(jointab[f'int_flux_{i+1}'])
+    mask = np.logical_and(compact_mask,np.logical_and(spatial_mask, np.isnan(jointab[f'int_flux_{i+1}'])))
 
     rmsmap = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp_rms.fits')
     rmshdu = fits.open(rmsmap)
@@ -95,7 +96,8 @@ fluxes = np.empty((nin, len(jointab)), dtype='float32')
 sigmas = np.empty((nin, len(jointab)), dtype='float32')
 for i in range(0, nin):
     fluxes[i, :] = jointab[f"peak_flux_{i+1}"]
-    sigmas[i, :] = jointab[f"local_rms_{i+1}"]
+# Add the errors in quadrature -- suppresses the apparent variability of bright sources (just flux density calibrator errors and ionosphere)
+    sigmas[i, :] = np.sqrt((0.1*jointab[f'peak_flux_{i+1}'])**2 + (jointab[f"local_rms_{i+1}"])**2)
 wfluxes = fluxes * sigmas**-2
 weights = sigmas**-2
 jointab['weighted_avg_peak_flux'] = np.nanmean(wfluxes, axis=0) / np.nanmean(weights, axis=0)
@@ -105,7 +107,7 @@ innerterm = np.empty((nin, len(jointab)), dtype='float32')
 fluxsq = np.empty((nin, len(jointab)), dtype='float32')
 # Compute the inner terms for eta and var
 for i in range(0, nin):
-    innerterm[i, :] = ((jointab[f"peak_flux_{i+1}"] - jointab['weighted_avg_peak_flux'])**2) / (jointab[f"local_rms_{i+1}"]**2)
+    innerterm[i, :] = ((jointab[f"peak_flux_{i+1}"] - jointab['weighted_avg_peak_flux'])**2) / (jointab[f"local_rms_{i+1}"]**2 + (0.1*jointab[f"peak_flux_{i+1}"])**2)
     fluxsq[i, :]  = jointab[f"peak_flux_{i+1}"]**2
 
 # With our completed table, we can run an eta/V analysis.
@@ -125,11 +127,16 @@ final_mask = np.logical_and(np.logical_and(compact_mask, iso_mask), spatial_mask
 jointab[final_mask].write('isocompact_join_table.fits', format='fits', overwrite=True)
 # Write everything while we're debugging
 #jointab.write('modified_join_table.fits', format='fits', overwrite=True)
+# Clean up my mess
+os.remove("test_auto_join.fits")
+os.remove("tmp.fits")
+os.remove("sparse.fits")
 
 # Select interesting sources and make useful plots
 eta_mask = jointab['eta'] > 5
-var_mask = jointab['var'] > 0.05
-transients_mask = np.logical_and(np.logical_and(final_mask, eta_mask), var_mask)
+var_mask = jointab['var'] > 0.5
+snr_mask = jointab['mean_on_peak_flux']/jointab['mean_on_local_rms'] > 6
+transients_mask = np.logical_and(np.logical_and(np.logical_and(final_mask, eta_mask), var_mask), snr_mask)
 
 boxwidth = 200
 for src in jointab[transients_mask]:
@@ -140,7 +147,7 @@ for src in jointab[transients_mask]:
     srcname = f"GPM_J{ra}{dec}"
     eta, var = src['eta'], src['var']
     fluxes = np.array([src[f'peak_flux_{i+1}'] for i in range(0, nin)])
-    errs = np.array([src[f'local_rms_{i+1}'] for i in range(0, nin)])
+    errs = np.array([np.sqrt((0.1*src[f'peak_flux+{i+1}'])**2 + src[f'local_rms_{i+1}']**2) for i in range(0, nin)])
     snr = src['mean_on_peak_flux']/src['mean_on_local_rms']
     # Make a light curve
     fig = plt.figure(figsize=(8,5))
@@ -150,7 +157,8 @@ for src in jointab[transients_mask]:
         color = 'red'
     else:
         color = 'grey'
-    ax.errorbar(x=np.arange(0, nin), y=1000*fluxes, yerr=1000*errs, color=color)
+    ax.errorbar(x=5*np.arange(0, nin), y=1000*fluxes, yerr=1000*errs, color=color)
+    ax.set_ylim([-1000*np.nanmin(errs), 1100*np.nanmax(fluxes)])
     ax.set_ylabel("Flux density / mJy")
     ax.set_xlabel("Time / minutes")
     fig.savefig(f"{srcname}_lightcurve.png", bbox_inches="tight")
