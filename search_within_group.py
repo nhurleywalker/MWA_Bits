@@ -13,8 +13,11 @@ import os
 
 # First we need to read all the tables that we've been fed
 # For now, hardcode; later we figure out a way of specifying inputs
-
-hdus = sorted(glob("*warp-corrected_wbeam.fits"))
+# For the 2024+ stuff
+#wbeam = "_wbeam"
+# For 2022
+wbeam = ""
+hdus = sorted(glob(f"*warp-corrected{wbeam}.fits"))
 
 minra = 0.0
 maxra = 360
@@ -40,7 +43,8 @@ outfile = "test_auto_join.fits"
 
 # Downselect to sources within the region we care about
 # Note the slightly frustrating quotes
-icmd = "".join([f"icmd{i+1}=\'select \"ra > {minra} && ra < {maxra} && dec < {maxdec} && dec > {mindec}\"\' " for i in range(0, nin)])
+# Also removing any source where the peak flux was fitted but with a '-1' error -- these are very poor fits and should not be used
+icmd = "".join([f"icmd{i+1}=\'select \"ra > {minra} && ra < {maxra} && dec < {maxdec} && dec > {mindec} && err_peak_flux > -1 && err_a > -1\"\' " for i in range(0, nin)])
 # Always include an entry -- a transient could be in a single frame
 joincmd = "".join([f"join{i+1}='always' " for i in range(0, nin)])
 # Sky crossmatch of 25" was found to be necessary -- this is not the ionosphere, this is sources being decomposed in different ways
@@ -66,28 +70,47 @@ jointab['mean_dec'] = np.nanmean([jointab[f'dec_{i+1}'] for i in range(0, nin)],
 coords = SkyCoord(jointab['mean_ra'], jointab['mean_dec'], frame='fk5', unit=(u.deg, u.deg))
 # We also want to know the rough centroid of the observations so we can exclude the edges
 cent = SkyCoord(np.median(jointab['mean_ra']), np.median(jointab['mean_dec']), frame='fk5', unit=(u.deg, u.deg))
-spatial_mask = coords.separation(cent) < 10*u.deg
+spatial_mask = coords.separation(cent) < 9.5*u.deg
 # We will later want the average flux density of sources BEFORE we have populated them with zeros
 jointab['mean_on_peak_flux'] = np.nanmean([jointab[f'peak_flux_{i+1}'] for i in range(0, nin)], axis=0)
 jointab['mean_on_local_rms'] = np.nanmean([jointab[f'local_rms_{i+1}'] for i in range(0, nin)], axis=0)
 
-# Now we have compact transient sources in a reliable region, for every missing entry, go and look up the RMS in the associated RMS map (just take the value at that pixel).
+# Now we have compact transient sources in a reliable region, for every missing entry, go and look up the flux/RMS in the associated flux/RMS map (just take the value at that pixel).
 # Downselecting the sources a bit here helps with the RAM management which can otherwise blow up
 for i in range(0, nin):
     mask = np.logical_and(compact_mask,np.logical_and(spatial_mask, np.isnan(jointab[f'int_flux_{i+1}'])))
 
-    rmsmap = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp_rms.fits')
-    rmshdu = fits.open(rmsmap)
+    rmsmap = hdus[i].replace(f'_comp_warp-corrected{wbeam}.fits', '_warp_rms.fits')
+    rmshdu = fits.open(rmsmap, 'update')
+# some bscale values are empty for some reason!
+    if rmshdu[0].header['BSCALE'] is None:
+        rmshdu[0].header['BSCALE'] = 1.0
+        rmshdu.close()
+        rmshdu = fits.open(img)
     w = WCS(rmshdu[0].header, naxis=2)
     index = w.world_to_array_index(coords[mask])
     rms = rmshdu[0].data[index]
     jointab[f'local_rms_{i+1}'][mask] = rms
 
-    img = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp.fits')
-    imghdu = fits.open(img)
+    img = hdus[i].replace(f'_comp_warp-corrected{wbeam}.fits', '_warp.fits')
+    imghdu = fits.open(img, mode='update')
+# Sometimes BSCALE isn't a key word for some reason
+    try:
+        b = imghdu[0].header['BSCALE']
+    except KeyError:
+        imghdu[0].header['BSCALE'] = 1.0
+# some bscale values are empty for some reason!
+    if imghdu[0].header['BSCALE'] is None:
+        imghdu[0].header['BSCALE'] = 1.0
+        imghdu.close()
+        imghdu = fits.open(img)
     w = WCS(imghdu[0].header, naxis=2)
     index = w.world_to_array_index(coords[mask])
-    flux = imghdu[0].data[index]
+# For some reason, some of my images are flattened (8000,8000) and others are not! (1, 1, 8000, 8000)
+    if imghdu[0].data.shape[0] == 1:
+        flux = imghdu[0].data[0,0][index]
+    else:
+        flux = imghdu[0].data[index]
     jointab[f'int_flux_{i+1}'][mask] = flux
     jointab[f'peak_flux_{i+1}'][mask] = flux
 
@@ -147,7 +170,7 @@ for src in jointab[transients_mask]:
     srcname = f"GPM_J{ra}{dec}"
     eta, var = src['eta'], src['var']
     fluxes = np.array([src[f'peak_flux_{i+1}'] for i in range(0, nin)])
-    errs = np.array([np.sqrt((0.1*src[f'peak_flux+{i+1}'])**2 + src[f'local_rms_{i+1}']**2) for i in range(0, nin)])
+    errs = np.array([np.sqrt((0.1*src[f'peak_flux_{i+1}'])**2 + src[f'local_rms_{i+1}']**2) for i in range(0, nin)])
     snr = src['mean_on_peak_flux']/src['mean_on_local_rms']
     # Make a light curve
     fig = plt.figure(figsize=(8,5))
@@ -158,19 +181,23 @@ for src in jointab[transients_mask]:
     else:
         color = 'grey'
     ax.errorbar(x=5*np.arange(0, nin), y=1000*fluxes, yerr=1000*errs, color=color)
-    ax.set_ylim([-1000*np.nanmin(errs), 1100*np.nanmax(fluxes)])
+    ax.set_ylim([-3000*np.nanmin(errs), 1100*np.nanmax(fluxes)])
     ax.set_ylabel("Flux density / mJy")
     ax.set_xlabel("Time / minutes")
     fig.savefig(f"{srcname}_lightcurve.png", bbox_inches="tight")
     # Make an animated gif
     for i in range(0, nin):
-        img = hdus[i].replace('_comp_warp-corrected_wbeam.fits', '_warp.fits')
+        img = hdus[i].replace(f'_comp_warp-corrected{wbeam}.fits', '_warp.fits')
         imghdu = fits.open(img)
         w = WCS(imghdu[0].header, naxis=2)
-        cutout = Cutout2D(imghdu[0].data, pos, (boxwidth, boxwidth), wcs = w)
+# For some reason, some of my images are flattened (8000,8000) and others are not! (1, 1, 8000, 8000)
+        if imghdu[0].data.shape[0] == 1:
+            cutout = Cutout2D(imghdu[0].data[0,0], pos, (boxwidth, boxwidth), wcs = w)
+        else:
+            cutout = Cutout2D(imghdu[0].data, pos, (boxwidth, boxwidth), wcs = w)
         fig = plt.figure(figsize=(3,3))
         ax = fig.add_subplot(111)
-        ax.imshow(cutout.data, vmin = np.nanmin(errs), vmax = np.nanmax(fluxes), origin="lower")
+        ax.imshow(cutout.data, vmin = -3*np.nanmin(errs), vmax = np.nanmax(fluxes), origin="lower")
         plt.axis("off")
         plt.margins(x=0)
         plt.margins(y=0)
